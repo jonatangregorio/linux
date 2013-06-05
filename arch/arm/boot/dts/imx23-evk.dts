@@ -54,6 +54,25 @@
 					fsl,voltage = <1>;
 					fsl,pull-up = <0>;
 				};
+
+				adc_pins_a: adc@0 {
+					reg = <0>;
+					fsl,pinmux-ids = <
+						0x0073 /* MX23_PAD_GPMI_D07__GPIO_0_7 */
+						0x00e3 /* MX23_PAD_GPMI_D14__GPIO_0_14 */
+						0x00f3 /* MX23_PAD_GPMI_D15__GPIO_0_15 */
+					>;
+					fsl,drive-strength = <1>;
+					fsl,voltage = <1>;
+					fsl,pull-up = <0>;
+				};
+
+				adc_reset_fixup: adc-reset-fixup {
+					fsl,pinmux-ids = <
+						0x00f3 /* MX23_PAD_GPMI_D15__GPIO_0_15 */
+					>;
+					fsl,pull-up = <1>;
+				};
 			};
 
 			lcdif@80030000 {
@@ -85,6 +104,26 @@
 							pixelclk-active = <0>;
 						};
 					};
+				};
+			};
+
+			ssp1: ssp@80034000 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				compatible = "fsl,imx23-spi";
+				pinctrl-names = "default";
+				pinctrl-0 = <&spi2_pins_a>;
+				status = "okay";
+
+				adc: ads1247@0 {
+					compatible = "ti,ads1247";
+					pinctrl-names = "default";
+					pinctrl-0 = <&adc_pins_a &adc_reset_fixup>;
+					drdy-gpio = <&gpio0 7 0>;
+					start-gpio = <&gpio0 14 0>;
+					reset-gpio = <&gpio0 15 0>;
+					spi-max-frequency = <2000000>;
+					reg = <0>;
 				};
 			};
 		};
