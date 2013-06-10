@@ -1,11 +1,10 @@
 menuconfig SND_MXS_SOC
 	tristate "SoC Audio for Freescale MXS CPUs"
-	depends on ARCH_MXS
+	depends on MXS_DMA
 	select SND_SOC_GENERIC_DMAENGINE_PCM
 	help
 	  Say Y or M if you want to add support for codecs attached to
 	  the MXS SAIF interface.
-
 
 if SND_MXS_SOC
 
@@ -18,3 +17,11 @@ config SND_SOC_MXS_SGTL5000
 	  a sgtl5000 codec.
 
 endif	# SND_MXS_SOC
+
+config SND_MXS_AUDIOOUT
+	tristate "SoC Audio for Freescale's i.MX23"
+	depends on MXS_DMA
+	select SND_SOC_GENERIC_DMAENGINE_PCM
+	help
+	  Say Y or M if you want to add support for the headphone lines
+	  of the i.MX23.

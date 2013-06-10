@@ -408,11 +408,13 @@
 				status = "disabled";
 			};
 
-			audio-out@80048000 {
+			audioout: audio-out@80048000 {
+				compatible = "fsl,imx23-audioout";
 				reg = <0x80048000 0x2000>;
 				dmas = <&dma_apbx 1>;
 				dma-names = "tx";
-				status = "disabled";
+				clocks = <&clks 31>;
+				status = "ok";
 			};
 
 			audio-in@8004c000 {
@@ -518,5 +520,10 @@
 			clocks = <&clks 40>;
 			status = "disabled";
 		};
+	};
+
+	sound {
+		compatible = "fsl,imx23-audio";
+		audioout = <&audioout>;
 	};
 };

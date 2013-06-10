@@ -4,6 +4,9 @@ snd-soc-mxs-pcm-objs := mxs-pcm.o
 
 obj-$(CONFIG_SND_MXS_SOC) += snd-soc-mxs.o snd-soc-mxs-pcm.o
 
+snd-soc-mxs-audioout-objs := mxs-audioout.o mxs-audiocard.o
+obj-$(CONFIG_SND_MXS_AUDIOOUT) += snd-soc-mxs-audioout.o snd-soc-mxs-pcm.o
+
 # i.MX Machine Support
 snd-soc-mxs-sgtl5000-objs := mxs-sgtl5000.o
 
