@@ -2,6 +2,8 @@
 # Makefile for industrial I/O ADC drivers
 #
 
+ccflags-y := -DDEBUG
+
 ad7606-y := ad7606_core.o
 ad7606-$(CONFIG_IIO_BUFFER) += ad7606_ring.o
 ad7606-$(CONFIG_AD7606_IFACE_PARALLEL) += ad7606_par.o
@@ -20,3 +22,4 @@ obj-$(CONFIG_AD7280) += ad7280a.o
 obj-$(CONFIG_LPC32XX_ADC) += lpc32xx_adc.o
 obj-$(CONFIG_MXS_LRADC) += mxs-lradc.o
 obj-$(CONFIG_SPEAR_ADC) += spear_adc.o
+obj-$(CONFIG_TI_ADS124X) += ti-ads124x.o

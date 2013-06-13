@@ -130,4 +130,14 @@ config SPEAR_ADC
 	  Say yes here to build support for the integrated ADC inside the
 	  ST SPEAr SoC. Provides direct access via sysfs.
 
+config TI_ADS124X
+	tristate "Texas Instruments ADS1246/7/8 temperature sensor and ADC driver"
+	depends on SPI
+	help
+	  Say yes here to build support for Texas Instruments ADS1246/7/8 temperature
+	  sensor and ADC driver.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ti-ads124x
+
 endmenu
