@@ -22,12 +22,33 @@
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
 
-struct ads124x_data {
+/* Register addresses for ADS1247 and ADS1248 */
+#define ADS124X_REG_MUX0      0x00
+#define ADS124X_REG_VBIAS     0x01
+#define ADS124X_REG_MUX1      0x02
+#define ADS124X_REG_SYS0      0x03
+#define ADS124X_REG_OFC0      0x04
+#define ADS124X_REG_OFC1      0x05
+#define ADS124X_REG_OFC2      0x06
+#define ADS124X_REG_FSC0      0x07
+#define ADS124X_REG_FSC1      0x08
+#define ADS124X_REG_FSC2      0x09
+#define ADS124X_REG_IDAC0     0x0a
+#define ADS124X_REG_IDAC1     0x0b
+#define ADS124X_REG_GPIOCFG   0x0c
+#define ADS124X_REG_GPIODIR   0x0d
+#define ADS124X_REG_GPIODAT   0x0e
+
+struct ads124x_state {
 	struct spi_device *spi;
 	int drdy_gpio;
 	int start_gpio;
 	int reset_gpio;
 	int vref_uvad;
+
+        /* FIXME: this is the data buffer.  Understand it better and */
+        /* maybe fix types/size */
+        int data[8] ____cacheline_aligned;
 };
 
 static const struct of_device_id ads124x_ids[] = {
@@ -37,6 +58,7 @@ static const struct of_device_id ads124x_ids[] = {
 MODULE_DEVICE_TABLE(of, ads124x_ids);
 
 static const struct iio_info ads124x_iio_info = {
+	.read_raw = &ads124x_read_raw,
 	.driver_module = THIS_MODULE,
 };
 
@@ -44,7 +66,7 @@ static int ads124x_probe(struct spi_device *spi)
 {
 	struct device_node *np = spi->dev.of_node;
 	struct iio_dev *indio_dev;
-	struct ads124x_data *adc;
+	struct ads124x_state *adc;
 	int ret = -ENODEV;
 
 	indio_dev = iio_device_alloc(sizeof(*adc));
@@ -91,6 +113,31 @@ static int ads124x_remove(struct spi_device *spi)
 	iio_device_free(indio_dev);
 
 	return 0;
+}
+
+
+static void ads124x_select_input(struct ads124x_state *st, unsigned int nr)
+{
+        /* TODO */
+        return;
+}
+
+
+static int ads124x_read_single(struct ads124x_state *st, int *val,
+	unsigned int address)
+{
+        /* TODO */
+        return 0;
+}
+
+static int ads124x_read_raw(struct iio_dev *indio_dev,
+	struct iio_chan_spec const *chan, int *val, int *val2, long m)
+{
+	struct ads124x_state *st = iio_priv(indio_dev);
+	int ret;
+
+        /* TODO */
+        return 0;
 }
 
 static struct spi_driver ads124x_driver = {
