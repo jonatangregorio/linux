@@ -57,6 +57,30 @@ static const struct of_device_id ads124x_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, ads124x_ids);
 
+static void ads124x_select_input(struct ads124x_state *st, unsigned int nr)
+{
+        /* TODO */
+        return;
+}
+
+
+static int ads124x_read_single(struct ads124x_state *st, int *val,
+	unsigned int address)
+{
+        /* TODO */
+        return 0;
+}
+
+static int ads124x_read_raw(struct iio_dev *indio_dev,
+	struct iio_chan_spec const *chan, int *val, int *val2, long m)
+{
+	struct ads124x_state *st = iio_priv(indio_dev);
+	int ret;
+
+	/* TODO */
+	return 0;
+}
+
 static const struct iio_info ads124x_iio_info = {
 	.read_raw = &ads124x_read_raw,
 	.driver_module = THIS_MODULE,
@@ -113,31 +137,6 @@ static int ads124x_remove(struct spi_device *spi)
 	iio_device_free(indio_dev);
 
 	return 0;
-}
-
-
-static void ads124x_select_input(struct ads124x_state *st, unsigned int nr)
-{
-        /* TODO */
-        return;
-}
-
-
-static int ads124x_read_single(struct ads124x_state *st, int *val,
-	unsigned int address)
-{
-        /* TODO */
-        return 0;
-}
-
-static int ads124x_read_raw(struct iio_dev *indio_dev,
-	struct iio_chan_spec const *chan, int *val, int *val2, long m)
-{
-	struct ads124x_state *st = iio_priv(indio_dev);
-	int ret;
-
-        /* TODO */
-        return 0;
 }
 
 static struct spi_driver ads124x_driver = {

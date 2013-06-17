@@ -963,13 +963,13 @@ static int mxs_lradc_probe(struct platform_device *pdev)
 	iio->num_channels = ARRAY_SIZE(mxs_lradc_chan_spec);
 	iio->masklength = LRADC_MAX_TOTAL_CHANS;
 
+	ret = mxs_lradc_trigger_init(iio);
+	if (ret)
+		goto err_trig;
+
 	ret = iio_triggered_buffer_setup(iio, &iio_pollfunc_store_time,
 				&mxs_lradc_trigger_handler,
 				&mxs_lradc_buffer_ops);
-	if (ret)
-		goto err_addr;
-
-	ret = mxs_lradc_trigger_init(iio);
 	if (ret)
 		goto err_trig;
 
@@ -1011,8 +1011,8 @@ static int mxs_lradc_remove(struct platform_device *pdev)
 	mxs_lradc_hw_stop(lradc);
 
 	iio_device_unregister(iio);
-	iio_triggered_buffer_cleanup(iio);
 	mxs_lradc_trigger_remove(iio);
+	iio_triggered_buffer_cleanup(iio);
 	iio_device_free(iio);
 
 	return 0;
