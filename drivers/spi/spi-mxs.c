@@ -82,6 +82,7 @@ static int mxs_spi_setup_transfer(struct spi_device *dev,
 	}
 
 	hz = dev->max_speed_hz;
+
 	if (t && t->speed_hz)
 		hz = min(hz, t->speed_hz);
 	if (hz == 0) {
@@ -89,6 +90,7 @@ static int mxs_spi_setup_transfer(struct spi_device *dev,
 		return -EINVAL;
 	}
 
+	/* printk(KERN_INFO "max_speed_hz = %d\n", hz); */
 	mxs_ssp_set_clk_rate(ssp, hz);
 
 	writel(BF_SSP_CTRL1_SSP_MODE(BV_SSP_CTRL1_SSP_MODE__SPI) |

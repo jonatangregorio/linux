@@ -32,6 +32,8 @@ void mxs_ssp_set_clk_rate(struct mxs_ssp *ssp, unsigned int rate)
 
 	ssp_clk = clk_get_rate(ssp->clk);
 
+	/*	printk(KERN_INFO "ssp_clk: %d\n", ssp_clk); */
+
 	for (clock_divide = 2; clock_divide <= 254; clock_divide += 2) {
 		clock_rate = DIV_ROUND_UP(ssp_clk, rate * clock_divide);
 		clock_rate = (clock_rate > 0) ? clock_rate - 1 : 0;
