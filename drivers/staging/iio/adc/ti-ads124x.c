@@ -81,21 +81,71 @@ static const struct of_device_id ads124x_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, ads124x_ids);
 
+static int ads124x_stop_converting(struct ads124x_state *adc)
+{
+        u8 cmd[4];
+        u8 res[2];
+        int ret;
+        cmd[0] = ADS124X_SPI_SDATAC;
+        cmd[1] = ADS124X_SPI_NOP;
+        cmd[2] = ADS124X_SPI_NOP;
+        cmd[3] = ADS124X_SPI_NOP;
+
+        ret = spi_write(adc->spi, cmd, 4);
+
+        ret = spi_read(adc->spi, res, 2);
+
+        printk(KERN_INFO "ADS124x: stopping reading continuously. ret=%d\n", ret);
+        msleep(200);
+
+        return ret;
+}
+
 static int ads124x_read_reg(struct ads124x_state *st,
                             u8 reg,
                             u8 *buf)
 {
-        u8 read_cmd[2];
-        int ret;
+        /* u8 read_cmd[3]; */
+        /* int ret; */
+        /* u8 res[3]; */
 
-        *buf = 0xff;
+        /* read_cmd[0] = ADS124X_SPI_RREG | reg; */
+        /* read_cmd[1] = ADS124X_SINGLE_REG; */
+        /* read_cmd[2] = ADS124X_SPI_NOP; */
+        /* printk(KERN_INFO "DRDY (before) = 0x%x\n", gpio_get_value(st->drdy_gpio)); */
+        /* ret = spi_write_then_read(st->spi, read_cmd, 3, res, 3); */
+        /* printk(KERN_INFO "DRDY (after) = 0x%x\n", gpio_get_value(st->drdy_gpio)); */
+        
+        /* printk(KERN_INFO "res[0] = 0x%x\n", res[0]); */
+        /* printk(KERN_INFO "res[1] = 0x%x\n", res[1]); */
+        /* printk(KERN_INFO "res[2] = 0x%x\n", res[2]); */
+
+        /* buf[0] = res[0]; */
+        /* return ret; */
+
+
+        u8 read_cmd[3];
+        int ret;
+        u8 res[3];
 
         read_cmd[0] = ADS124X_SPI_RREG | reg;
         read_cmd[1] = ADS124X_SINGLE_REG;
-        printk(KERN_INFO "DRDY (before) = 0x%x\n", gpio_get_value(st->drdy_gpio));
-        ret = spi_write_then_read(st->spi, read_cmd, 2, buf, 1);
-        printk(KERN_INFO "DRDY (after) = 0x%x\n", gpio_get_value(st->drdy_gpio));
+        read_cmd[2] = ADS124X_SPI_NOP;
+        spi_write(st->spi, read_cmd, 3);
+        msleep(20);
+
+        res[0] = 0xff;
+        res[1] = 0xff;
+        res[2] = 0xff;
+
+        ret = spi_read(st->spi, res, 3);
+        printk(KERN_INFO "res[0] = 0x%x\n", res[0]);
+        printk(KERN_INFO "res[1] = 0x%x\n", res[1]);
+        printk(KERN_INFO "res[2] = 0x%x\n", res[2]);
+
+        buf[0] = res[0];
         return ret;
+
 }
 
 static int ads124x_write_reg(struct ads124x_state *st,
@@ -104,33 +154,32 @@ static int ads124x_write_reg(struct ads124x_state *st,
                              size_t len)
 {
         struct spi_transfer transfer_data[2];
-        u8 write_cmd[2];
+        u8 write_cmd[3];
         struct spi_message message;
         int ret;
 
         write_cmd[0] = ADS124X_SPI_WREG | reg;
         write_cmd[1] = ADS124X_SINGLE_REG;
+        write_cmd[2] = *buf;
 
         transfer_data[0].tx_buf = write_cmd;
         transfer_data[0].rx_buf = NULL;
-        transfer_data[0].len = 2;
+        transfer_data[0].len = 3;
         transfer_data[0].speed_hz = 2000000;
         transfer_data[0].bits_per_word = 8;
 
         printk(KERN_INFO "==== write cmd = 0x%x\n", write_cmd[0]);
         printk(KERN_INFO "==== write 2nd cmd = 0x%x\n", write_cmd[1]);
+        printk(KERN_INFO "==== write 3nd cmd = 0x%x\n", write_cmd[2]);
         printk(KERN_INFO "==== write arg = 0x%x\n", *buf);
-
-        transfer_data[1].tx_buf = buf;
-        transfer_data[1].rx_buf = NULL;
-        transfer_data[1].len = len;
-        transfer_data[1].speed_hz = 2000000;
-        transfer_data[1].bits_per_word = 8;
 
         spi_message_init(&message);
         spi_message_add_tail(transfer_data, &message);
         ret = spi_sync(st->spi, &message);
+
         printk(KERN_INFO "==== write ret = %d\n", ret);
+        printk(KERN_INFO "DRDY (after write) = 0x%x\n", gpio_get_value(st->drdy_gpio));
+
         return ret;
 }
 
@@ -200,12 +249,21 @@ static const struct iio_info ads124x_iio_info = {
 /*               */
 static void ads124x_reset(struct ads124x_state *adc)
 {
+        u8 cmd[1];
+        int ret;
+
         printk(KERN_INFO "ADS124x: resetting\n");
 
         gpio_set_value(adc->reset_gpio, 0);
         msleep(600);
         gpio_set_value(adc->reset_gpio, 1);
         msleep(600);
+
+
+        cmd[0] = ADS124X_SPI_RESET;
+        ret = spi_write(adc->spi, cmd, 1);
+        msleep(600);
+
         return;
 }
 
@@ -215,22 +273,26 @@ static void ads124x_start(struct ads124x_state *adc)
         gpio_set_value(adc->start_gpio, 1);
         /* FIXME: the sleep time is not accurate: see the datasheet, */
         /* table 15 at page 33. */
-        msleep(1000000 / ADS124X_SAMPLE_RATE);
+        msleep(1000);
         return;
 }
 
 static int ads124x_wakeup(struct ads124x_state *adc)
 {
-        u8 wakeup_cmd[1];
+        u8 wakeup_cmd[4];
         int ret;
         wakeup_cmd[0] = ADS124X_SPI_WAKEUP;
+        wakeup_cmd[1] = ADS124X_SPI_NOP;
+        wakeup_cmd[2] = ADS124X_SPI_NOP;
+        wakeup_cmd[3] = ADS124X_SPI_NOP;
  
-        ret = spi_write(adc->spi, wakeup_cmd, 1);
+        ret = spi_write(adc->spi, wakeup_cmd, 4);
 
         printk(KERN_INFO "ADS124x: waking up. ret=%d\n", ret);
 
         return ret;
 }
+
 
 /*                            */
 /* Information from registers */
@@ -301,7 +363,7 @@ static int ads124x_set_pga_gain(struct ads124x_state *adc, u8 gain)
         cur &= ~(1 << 4);
         cur &= ~(1 << 5);
         cur &= ~(1 << 6);
-        gain = cur | gain << 4;
+        gain = cur | (gain << 4);
         
         printk(KERN_INFO "======= Setting gain=0x%x\n", gain);
         ret = ads124x_write_reg(adc, ADS124X_REG_SYS0, &gain, 1);
@@ -370,8 +432,7 @@ static int ads124x_probe(struct spi_device *spi)
 	spi_set_drvdata(spi, indio_dev);
 	adc->spi = spi;
 
-        if (adc->spi->mode != SPI_MODE_3)
-                adc->spi->mode = SPI_MODE_0;
+        adc->spi->mode = SPI_MODE_1;
         adc->spi->bits_per_word = 8;
 
         status = spi_setup(spi);
@@ -386,32 +447,33 @@ static int ads124x_probe(struct spi_device *spi)
 	if (ret)
 		goto error;
 
-        ads124x_start(adc);
         ads124x_reset(adc);
+        ads124x_start(adc);
         ads124x_wakeup(adc);
+        ads124x_stop_converting(adc);
 
         printk(KERN_INFO "ADS124x: Negative input=%x\n",
                ads124x_get_negative_input(adc));
         printk(KERN_INFO "ADS124x: ID=%x\n", ads124x_get_adc_id(adc));
 
-        printk(KERN_INFO "ADS124x: Output data rate=%x\n",
-               ads124x_get_output_data_rate(adc));
+        /* printk(KERN_INFO "ADS124x: Output data rate=%x\n", */
+        /*        ads124x_get_output_data_rate(adc)); */
 
         printk(KERN_INFO "ADS124x: PGA gain=%x\n", ads124x_get_pga_gain(adc));
         ads124x_set_pga_gain(adc, 4);
         msleep(1000);
         printk(KERN_INFO "ADS124x: PGA gain=%x\n", ads124x_get_pga_gain(adc));
 
-        printk(KERN_INFO "ADS124x: PGA gain=%x\n", ads124x_get_pga_gain(adc));
-        printk(KERN_INFO "ADS124x: PGA gain=%x\n", ads124x_get_pga_gain(adc));
-        printk(KERN_INFO "ADS124x: PGA gain=%x\n", ads124x_get_pga_gain(adc));
+        /* printk(KERN_INFO "ADS124x: PGA gain=%x\n", ads124x_get_pga_gain(adc)); */
+        /* printk(KERN_INFO "ADS124x: PGA gain=%x\n", ads124x_get_pga_gain(adc)); */
+        /* printk(KERN_INFO "ADS124x: PGA gain=%x\n", ads124x_get_pga_gain(adc)); */
 
-        printk(KERN_INFO "ADS124x: Output data rate=%x\n",
-               ads124x_get_output_data_rate(adc));
-        printk(KERN_INFO "ADS124x: Oscilator status=%x\n",
-               ads124x_get_oscilator_status(adc));
-        printk(KERN_INFO "ADS124x: Negative input=%x\n",
-               ads124x_get_negative_input(adc));
+        /* printk(KERN_INFO "ADS124x: Output data rate=%x\n", */
+        /*        ads124x_get_output_data_rate(adc)); */
+        /* printk(KERN_INFO "ADS124x: Oscilator status=%x\n", */
+        /*        ads124x_get_oscilator_status(adc)); */
+        /* printk(KERN_INFO "ADS124x: Negative input=%x\n", */
+        /*        ads124x_get_negative_input(adc)); */
 	return 0;
 
 error:
