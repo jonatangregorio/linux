@@ -68,6 +68,8 @@ struct ads124x_state {
 	int reset_gpio;
 	int vref_uvad;
 
+        struct mutex lock;
+
         /* FIXME: this is the data buffer.  Understand it better and */
         /* maybe fix types/size */
         int data[8] ____cacheline_aligned;
@@ -298,25 +300,32 @@ static int ads124x_get_negative_input(struct ads124x_state *st)
 
 static int ads124x_set_pga_gain(struct ads124x_state *st, u8 gain)
 {
-        u8 cur;
         int ret;
 
-        cur = ads124x_get_pga_gain(st);
+        mutex_lock(&st->lock);
 
-        if (cur < 0)
-                return cur;
+        ret = ads124x_get_pga_gain(st);
 
-        printk(KERN_DEBUG "%s: Current SYS0=0x%x\n", __FUNCTION__, cur);
+        if (ret < 0)
+                goto ads124x_release_lock;
 
-        cur &= ~(1 << 4);
-        cur &= ~(1 << 5);
-        cur &= ~(1 << 6);
-        gain = cur | (gain << 4);
+        printk(KERN_DEBUG "%s: Retrent SYS0=0x%x\n", __FUNCTION__, ret);
+
+        ret &= ~(1 << 4);
+        ret &= ~(1 << 5);
+        ret &= ~(1 << 6);
+        gain = ret | (gain << 4);
         
         printk(KERN_DEBUG "%s: Setting gain=0x%x\n", __FUNCTION__, gain);
+
         ret = ads124x_write_reg(st, ADS124X_REG_SYS0, &gain, 1);
 
-        return 0;
+        if (ret < 0)
+                goto ads124x_release_lock;
+
+ads124x_release_lock:
+        mutex_unlock(&st->lock);
+        return ret;
 }
 
 
@@ -453,6 +462,8 @@ static int ads124x_probe(struct spi_device *spi)
         ads124x_start(st);
         ads124x_stop_reading_continuously(st);
 
+        mutex_init(&st->lock);
+
 #ifdef ADS124X_TEST
         ads124x_test(st);
 #endif
@@ -460,7 +471,7 @@ static int ads124x_probe(struct spi_device *spi)
 
 error:
 	iio_device_free(indio_dev);
-	dev_err(&spi->dev, "Error while doing probe\n");
+	dev_err(&spi->dev, "Error while probing.\n");
 
 	return ret;
 }
@@ -469,9 +480,13 @@ error:
 static int ads124x_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
+        struct ads124x_state *st;
 
 	iio_device_unregister(indio_dev);
 	iio_device_free(indio_dev);
+
+        st = iio_priv(indio_dev);
+        mutex_destroy(&st->lock);
 
 	return 0;
 }
