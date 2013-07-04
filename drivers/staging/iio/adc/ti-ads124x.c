@@ -328,6 +328,25 @@ ads124x_release_lock:
         return ret;
 }
 
+/*            */
+/* Converting */
+/*            */
+
+static int ads124x_convert(struct ads124x_state *st)
+{
+        u8 cmd[1];
+        u8 res[3];
+        int ret;
+        cmd[0] = ADS124X_SPI_RDATA;
+
+        ret = spi_write(st->spi, cmd, 1);
+        msleep(250);
+        ret = spi_read(st->spi, res, 3);
+        printk(KERN_INFO "%s: Conversion: %x %x %x\n",
+               __FUNCTION__, res[0], res[1], res[2]);
+        return ret;
+}
+
 
 /*       */
 /* Tests */
@@ -381,6 +400,7 @@ void ads124x_test(struct ads124x_state *st)
         printk(KERN_INFO "ADS124x: Oscilator status=%x\n",
                ads124x_get_oscilator_status(st));
 
+        ads124x_convert(st);
 }
 
 #endif
