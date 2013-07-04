@@ -79,13 +79,13 @@ static const struct of_device_id ads124x_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, ads124x_ids);
 
-static int ads124x_stop_reading_continuously(struct ads124x_state *adc)
+static int ads124x_stop_reading_continuously(struct ads124x_state *st)
 {
         u8 cmd[1];
         int ret;
         cmd[0] = ADS124X_SPI_SDATAC;
 
-        ret = spi_write(adc->spi, cmd, 1);
+        ret = spi_write(st->spi, cmd, 1);
 
         printk(KERN_INFO "%s: stopping reading continuously. ret=%d\n",
                __FUNCTION__, ret);
@@ -197,9 +197,9 @@ static const struct iio_info ads124x_iio_info = {
 /*               */
 /* Start & reset */
 /*               */
-static void ads124x_start(struct ads124x_state *adc)
+static void ads124x_start(struct ads124x_state *st)
 {
-        gpio_set_value(adc->start_gpio, 1);
+        gpio_set_value(st->start_gpio, 1);
         printk(KERN_INFO "%s: starting.\n", __FUNCTION__);
         /* FIXME: the sleep time is not accurate: see the datasheet, */
         /* table 15 at page 33. */
@@ -207,19 +207,19 @@ static void ads124x_start(struct ads124x_state *adc)
         return;
 }
 
-static void ads124x_reset(struct ads124x_state *adc)
+static void ads124x_reset(struct ads124x_state *st)
 {
         u8 cmd[1];
         int ret;
 
-        gpio_set_value(adc->reset_gpio, 0);
+        gpio_set_value(st->reset_gpio, 0);
         msleep(200);
-        gpio_set_value(adc->reset_gpio, 1);
+        gpio_set_value(st->reset_gpio, 1);
         msleep(200);
 
 
         cmd[0] = ADS124X_SPI_RESET;
-        ret = spi_write(adc->spi, cmd, 1);
+        ret = spi_write(st->spi, cmd, 1);
 
         printk(KERN_INFO "%s: resetting. ret = %d\n", __FUNCTION__, ret);
 
@@ -228,7 +228,7 @@ static void ads124x_reset(struct ads124x_state *adc)
         return;
 }
 
-static int ads124x_wakeup(struct ads124x_state *adc)
+static int ads124x_wakeup(struct ads124x_state *st)
 {
         u8 wakeup_cmd[4];
         int ret;
@@ -237,7 +237,7 @@ static int ads124x_wakeup(struct ads124x_state *adc)
         wakeup_cmd[2] = ADS124X_SPI_NOP;
         wakeup_cmd[3] = ADS124X_SPI_NOP;
  
-        ret = spi_write(adc->spi, wakeup_cmd, 4);
+        ret = spi_write(st->spi, wakeup_cmd, 4);
 
         printk(KERN_INFO "%s: waking up. ret=%d\n", __FUNCTION__, ret);
 
@@ -248,60 +248,60 @@ static int ads124x_wakeup(struct ads124x_state *adc)
 /* Information from registers */
 /*                            */
 
-static int ads124x_get_oscilator_status(struct ads124x_state *adc) {
+static int ads124x_get_oscilator_status(struct ads124x_state *st) {
         /* 0 => Internal oscilator */
         /* 1 => External oscilator */
         u8 result;
         int ret;
 
-        ret = ads124x_read_reg(adc, ADS124X_REG_MUX1, &result);
+        ret = ads124x_read_reg(st, ADS124X_REG_MUX1, &result);
         return (ret < 0) ? ret : (result & 0x01);
 }
 
-static int ads124x_get_pga_gain(struct ads124x_state *adc)
+static int ads124x_get_pga_gain(struct ads124x_state *st)
 {
         u8 result;
         int ret;
 
-        ret = ads124x_read_reg(adc, ADS124X_REG_SYS0, &result);
+        ret = ads124x_read_reg(st, ADS124X_REG_SYS0, &result);
         return (ret < 0) ? ret : (result & 0x70);
 }
 
-static int ads124x_get_output_data_rate(struct ads124x_state *adc)
+static int ads124x_get_output_data_rate(struct ads124x_state *st)
 {
         u8 result;
         int ret;
 
-        ret = ads124x_read_reg(adc, ADS124X_REG_SYS0, &result);
+        ret = ads124x_read_reg(st, ADS124X_REG_SYS0, &result);
         return (ret < 0) ? ret : (result & 0x0f);
 }
 
-static int ads124x_get_adc_id(struct ads124x_state *adc)
+static int ads124x_get_adc_id(struct ads124x_state *st)
 {
         u8 result;
         int ret;
 
-        ret = ads124x_read_reg(adc, ADS124X_REG_IDAC0, &result);
+        ret = ads124x_read_reg(st, ADS124X_REG_IDAC0, &result);
         return (ret < 0) ? ret : (result >> 4);
 }
 
-static int ads124x_get_negative_input(struct ads124x_state *adc)
+static int ads124x_get_negative_input(struct ads124x_state *st)
 {
         u8 result;
         int ret;
-        ret = ads124x_read_reg(adc, ADS124X_REG_MUX0, &result);
+        ret = ads124x_read_reg(st, ADS124X_REG_MUX0, &result);
         return (ret < 0) ? ret : (result & 0x07);
 }
 
 
 /* Setting registers */
 
-static int ads124x_set_pga_gain(struct ads124x_state *adc, u8 gain)
+static int ads124x_set_pga_gain(struct ads124x_state *st, u8 gain)
 {
         u8 cur;
         int ret;
 
-        cur = ads124x_get_pga_gain(adc);
+        cur = ads124x_get_pga_gain(st);
 
         if (cur < 0)
                 return cur;
@@ -314,7 +314,7 @@ static int ads124x_set_pga_gain(struct ads124x_state *adc, u8 gain)
         gain = cur | (gain << 4);
         
         printk(KERN_DEBUG "%s: Setting gain=0x%x\n", __FUNCTION__, gain);
-        ret = ads124x_write_reg(adc, ADS124X_REG_SYS0, &gain, 1);
+        ret = ads124x_write_reg(st, ADS124X_REG_SYS0, &gain, 1);
 
         return 0;
 }
@@ -331,12 +331,12 @@ static int ads124x_set_pga_gain(struct ads124x_state *adc, u8 gain)
 #define ads124x_ok printk(KERN_INFO "    PASSED")
 #define ads124x_fail printk(KERN_INFO "    FAILED!")
 
-void ads124x_test(struct ads124x_state *adc)
+void ads124x_test(struct ads124x_state *st)
 {
         int res;
 
         printk(KERN_INFO "=== Testing negative input\n");
-        res = ads124x_get_negative_input(adc);
+        res = ads124x_get_negative_input(st);
         if (res == 0x01)
                 ads124x_ok;
         else {
@@ -345,8 +345,8 @@ void ads124x_test(struct ads124x_state *adc)
         }
 
         printk(KERN_INFO "=== Testing PGA gain (setting to 2)\n");
-        ads124x_set_pga_gain(adc, 2);
-        res = ads124x_get_pga_gain(adc);
+        ads124x_set_pga_gain(st, 2);
+        res = ads124x_get_pga_gain(st);
         if (res == 0x20)
                 ads124x_ok;
         else {
@@ -355,8 +355,8 @@ void ads124x_test(struct ads124x_state *adc)
         }
 
         printk(KERN_INFO "=== Testing PGA gain (setting to 5)\n");
-        ads124x_set_pga_gain(adc, 5);
-        res = ads124x_get_pga_gain(adc);
+        ads124x_set_pga_gain(st, 5);
+        res = ads124x_get_pga_gain(st);
         if (res == 0x50)
                 ads124x_ok;
         else {
@@ -364,13 +364,13 @@ void ads124x_test(struct ads124x_state *adc)
                 printk(KERN_INFO "Expected %x, got %x\n", 0x50, res);
         }
 
-        printk(KERN_INFO "ADS124x: ID=%x\n", ads124x_get_adc_id(adc));
+        printk(KERN_INFO "ADS124x: ID=%x\n", ads124x_get_adc_id(st));
 
         printk(KERN_INFO "ADS124x: Output data rate=%x\n",
-               ads124x_get_output_data_rate(adc));
+               ads124x_get_output_data_rate(st));
 
         printk(KERN_INFO "ADS124x: Oscilator status=%x\n",
-               ads124x_get_oscilator_status(adc));
+               ads124x_get_oscilator_status(st));
 
 }
 
@@ -385,7 +385,7 @@ static int ads124x_probe(struct spi_device *spi)
 {
 	struct device_node *np = spi->dev.of_node;
 	struct iio_dev *indio_dev;
-	struct ads124x_state *adc;
+	struct ads124x_state *st;
 	int ret = -ENODEV;
         int status;
         int err;
@@ -393,49 +393,49 @@ static int ads124x_probe(struct spi_device *spi)
         printk(KERN_INFO "%s: probing\n", __FUNCTION__);
         printk(KERN_INFO "%s: speed: %d\n", __FUNCTION__, spi->max_speed_hz);
 
-	indio_dev = iio_device_alloc(sizeof(*adc));
+	indio_dev = iio_device_alloc(sizeof(*st));
 	if (indio_dev == NULL)
 		return -ENOMEM;
 
-        adc = iio_priv(indio_dev);
+        st = iio_priv(indio_dev);
 
 	/* Read node values */
-	adc->drdy_gpio = of_get_named_gpio(np, "drdy-gpio", 0);
-	adc->start_gpio = of_get_named_gpio(np, "start-gpio", 0);
-	adc->reset_gpio = of_get_named_gpio(np, "reset-gpio", 0);
+	st->drdy_gpio = of_get_named_gpio(np, "drdy-gpio", 0);
+	st->start_gpio = of_get_named_gpio(np, "start-gpio", 0);
+	st->reset_gpio = of_get_named_gpio(np, "reset-gpio", 0);
 
 
-        err = devm_gpio_request_one(&indio_dev->dev, adc->drdy_gpio,
+        err = devm_gpio_request_one(&indio_dev->dev, st->drdy_gpio,
                                     GPIOF_IN, "adc-drdy");
         if (err) {
                 dev_err(&indio_dev->dev, "failed to get adc-drdy-gpios: %d\n", err);
                 return err;
         }
 
-        err = devm_gpio_request_one(&indio_dev->dev, adc->start_gpio,
+        err = devm_gpio_request_one(&indio_dev->dev, st->start_gpio,
                                     GPIOF_OUT_INIT_LOW, "adc-start");
         if (err) {
                 dev_err(&indio_dev->dev, "failed to get adc-start-gpios: %d\n", err);
                 return err;
         }
 
-        err = devm_gpio_request_one(&indio_dev->dev, adc->reset_gpio,
+        err = devm_gpio_request_one(&indio_dev->dev, st->reset_gpio,
                                     GPIOF_OUT_INIT_LOW, "adc-reset");
         if (err) {
                 dev_err(&indio_dev->dev, "failed to get adc-reset-gpios: %d\n", err);
                 return err;
         }
 
-        printk(KERN_INFO "%s: reset GPIO=%d\n", __FUNCTION__, adc->reset_gpio);
+        printk(KERN_INFO "%s: reset GPIO=%d\n", __FUNCTION__, st->reset_gpio);
 
 	/* TODO: External ref */
-	adc->vref_uvad = 2048000; /* 2.048V - page 29 */
+	st->vref_uvad = 2048000; /* 2.048V - page 29 */
 
 	spi_set_drvdata(spi, indio_dev);
-	adc->spi = spi;
+	st->spi = spi;
 
-        adc->spi->mode = SPI_MODE_1;
-        adc->spi->bits_per_word = 8;
+        st->spi->mode = SPI_MODE_1;
+        st->spi->bits_per_word = 8;
 
         status = spi_setup(spi);
         printk(KERN_INFO "%s: spi_setup returned %d\n", __FUNCTION__, status);
@@ -449,12 +449,12 @@ static int ads124x_probe(struct spi_device *spi)
 	if (ret)
 		goto error;
 
-        ads124x_reset(adc);
-        ads124x_start(adc);
-        ads124x_stop_reading_continuously(adc);
+        ads124x_reset(st);
+        ads124x_start(st);
+        ads124x_stop_reading_continuously(st);
 
 #ifdef ADS124X_TEST
-        ads124x_test(adc);
+        ads124x_test(st);
 #endif
 	return 0;
 
