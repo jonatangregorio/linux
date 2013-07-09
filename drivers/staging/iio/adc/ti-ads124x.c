@@ -331,6 +331,15 @@ ads124x_release_lock:
 /*            */
 /* Converting */
 /*            */
+static u32 ads124x_sample_to_32bit(u8 *sample)
+{
+        int sample32 = 0;
+        sample32 = sample[0] << 16;
+        sample32 |= sample[1] << 8;
+        sample32 |= sample[2];
+        return sign_extend32(sample32, 23);
+}
+
 
 static int ads124x_convert(struct ads124x_state *st)
 {
@@ -340,10 +349,13 @@ static int ads124x_convert(struct ads124x_state *st)
         cmd[0] = ADS124X_SPI_RDATA;
 
         ret = spi_write(st->spi, cmd, 1);
-        msleep(250);
         ret = spi_read(st->spi, res, 3);
-        printk(KERN_INFO "%s: Conversion: %x %x %x\n",
+        printk(KERN_INFO "%s: ret: %d\n", __FUNCTION__, ret);
+        printk(KERN_INFO "%s: Conversion (hex): %x %x %x\n",
                __FUNCTION__, res[0], res[1], res[2]);
+        printk(KERN_INFO "%s: Conversion (32bit): %d\n",
+               __FUNCTION__, ads124x_sample_to_32bit(res));
+
         return ret;
 }
 
@@ -362,6 +374,7 @@ static int ads124x_convert(struct ads124x_state *st)
 void ads124x_test(struct ads124x_state *st)
 {
         int res;
+        u8 buf;
 
         printk(KERN_INFO "=== Testing negative input\n");
         res = ads124x_get_negative_input(st);
@@ -399,6 +412,13 @@ void ads124x_test(struct ads124x_state *st)
 
         printk(KERN_INFO "ADS124x: Oscilator status=%x\n",
                ads124x_get_oscilator_status(st));
+
+        ads124x_set_pga_gain(st, 0);
+
+        ads124x_read_reg(st, ADS124X_REG_MUX1, &buf);
+        printk(KERN_INFO "MUX1 = 0x%x\n", buf);
+
+        printk(KERN_INFO "PGA gain = 0x%x\n", ads124x_get_pga_gain(st));
 
         ads124x_convert(st);
 }
