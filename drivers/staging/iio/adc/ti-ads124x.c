@@ -21,6 +21,7 @@
 #include <linux/of_gpio.h>
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
+#include <linux/iio/sysfs.h>
 #include <linux/delay.h>
 
 /* Register addresses for ADS1247 and ADS1248 */
@@ -60,13 +61,42 @@
 
 #define ADS124X_SAMPLE_RATE   2000 /* Number of samples per second */
 
+#define ADS124X_CHANNEL(chan) {					\
+	.type = IIO_TEMP,					\
+	.indexed = 1,						\
+	.channel = (chan),					\
+	.scan_index = (chan),					\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |	\
+				BIT(IIO_CHAN_INFO_SAMP_FREQ)	\
+}
+
+static const struct iio_chan_spec ads124x_chan_array[] = {
+	ADS124X_CHANNEL(0),
+};
+
+static const u16 ads124x_sample_freq_avail[] = {5, 10, 20, 40, 80, 160,
+                                                320, 640, 1000, 2000};
+
+static IIO_CONST_ATTR_SAMP_FREQ_AVAIL("5 10 20 40 80 160 320 640 1000 2000");
+
+static struct attribute *ads124x_attributes[] = {
+	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
+	NULL
+};
+
+static const struct attribute_group ads124x_attribute_group = {
+	.attrs = ads124x_attributes,
+};
+
 
 struct ads124x_state {
 	struct spi_device *spi;
 	int drdy_gpio;
 	int start_gpio;
 	int reset_gpio;
-	int vref_uvad;
+	int vref_mv;
+        int sample_rate;
 
         struct mutex lock;
 
@@ -180,20 +210,74 @@ static int ads124x_read_single(struct ads124x_state *st,
         return ret;
 }
 
-static int ads124x_read_raw(struct iio_dev *indio_dev,
-	struct iio_chan_spec const *chan, int *val, int *val2, long m)
+/*            */
+/* Converting */
+/*            */
+static u32 ads124x_sample_to_32bit(u8 *sample)
 {
-	/* struct ads124x_state *st = iio_priv(indio_dev); */
-	/* int ret; */
+        int sample32 = 0;
+        sample32 = sample[0] << 16;
+        sample32 |= sample[1] << 8;
+        sample32 |= sample[2];
+        return sign_extend32(sample32, 23);
+}
 
-	/* TODO */
-	return 0;
+
+static int ads124x_convert(struct ads124x_state *st)
+{
+        u8 cmd[1];
+        u8 res[3];
+        int ret;
+        cmd[0] = ADS124X_SPI_RDATA;
+
+        ret = spi_write(st->spi, cmd, 1);
+        ret = spi_read(st->spi, res, 3);
+        printk(KERN_INFO "%s: ret: %d\n", __FUNCTION__, ret);
+        printk(KERN_INFO "%s: Conversion (hex): %x %x %x\n",
+               __FUNCTION__, res[0], res[1], res[2]);
+        printk(KERN_INFO "%s: Conversion (32bit): %d\n",
+               __FUNCTION__, ads124x_sample_to_32bit(res));
+
+        return ads124x_sample_to_32bit(res);
+}
+
+static int ads124x_read_raw(struct iio_dev *indio_dev,
+                            struct iio_chan_spec const *chan,
+                            int *val, int *val2, long mask)
+{
+	struct ads124x_state *st = iio_priv(indio_dev);
+	int ret;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_RAW:
+		mutex_lock(&st->lock);
+                ret = ads124x_convert(st);
+		mutex_unlock(&st->lock);
+                *val = ret;
+		return IIO_VAL_INT;
+
+	case IIO_CHAN_INFO_SCALE:
+		*val = st->vref_mv;
+		*val2 =  (1 << 23) - 1;
+                return IIO_VAL_FRACTIONAL;
+
+	case IIO_CHAN_INFO_SAMP_FREQ:
+                *val = st->sample_rate;
+                *val2 = 0;
+		return IIO_VAL_INT;
+
+	default:
+		break;
+	}
+
+	return -EINVAL;
 }
 
 static const struct iio_info ads124x_iio_info = {
+	.driver_module = THIS_MODULE,
 	.read_raw = &ads124x_read_raw,
         .update_scan_mode = &ads124x_update_scan_mode,
-	.driver_module = THIS_MODULE,
+	.attrs = &ads124x_attribute_group,
 };
 
 /*               */
@@ -328,37 +412,6 @@ ads124x_release_lock:
         return ret;
 }
 
-/*            */
-/* Converting */
-/*            */
-static u32 ads124x_sample_to_32bit(u8 *sample)
-{
-        int sample32 = 0;
-        sample32 = sample[0] << 16;
-        sample32 |= sample[1] << 8;
-        sample32 |= sample[2];
-        return sign_extend32(sample32, 23);
-}
-
-
-static int ads124x_convert(struct ads124x_state *st)
-{
-        u8 cmd[1];
-        u8 res[3];
-        int ret;
-        cmd[0] = ADS124X_SPI_RDATA;
-
-        ret = spi_write(st->spi, cmd, 1);
-        ret = spi_read(st->spi, res, 3);
-        printk(KERN_INFO "%s: ret: %d\n", __FUNCTION__, ret);
-        printk(KERN_INFO "%s: Conversion (hex): %x %x %x\n",
-               __FUNCTION__, res[0], res[1], res[2]);
-        printk(KERN_INFO "%s: Conversion (32bit): %d\n",
-               __FUNCTION__, ads124x_sample_to_32bit(res));
-
-        return ret;
-}
-
 
 /*       */
 /* Tests */
@@ -477,8 +530,8 @@ static int ads124x_probe(struct spi_device *spi)
 
         printk(KERN_INFO "%s: reset GPIO=%d\n", __FUNCTION__, st->reset_gpio);
 
-	/* TODO: External ref */
-	/* st->vref_uvad = 2048000; /\* 2.048V - page 29 *\/ */
+	/* TODO: External ref (move to dt) */
+        st->vref_mv = 2670;
 
 	spi_set_drvdata(spi, indio_dev);
 	st->spi = spi;
@@ -493,6 +546,12 @@ static int ads124x_probe(struct spi_device *spi)
 	indio_dev->name = np->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ads124x_iio_info;
+
+        st->sample_rate = ADS124X_SAMPLE_RATE;
+
+	/* Setup the ADC channels available on the board */
+	indio_dev->num_channels = ARRAY_SIZE(ads124x_chan_array);
+	indio_dev->channels = ads124x_chan_array;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
