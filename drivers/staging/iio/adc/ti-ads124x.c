@@ -458,7 +458,7 @@ static int ads124x_probe(struct spi_device *spi)
         printk(KERN_INFO "%s: reset GPIO=%d\n", __FUNCTION__, st->reset_gpio);
 
 	/* TODO: External ref */
-	st->vref_uvad = 2048000; /* 2.048V - page 29 */
+	/* st->vref_uvad = 2048000; /\* 2.048V - page 29 *\/ */
 
 	spi_set_drvdata(spi, indio_dev);
 	st->spi = spi;
