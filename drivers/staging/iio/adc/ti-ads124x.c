@@ -61,6 +61,19 @@
 
 #define ADS124X_SAMPLE_RATE   2000
 
+/* Sample rates */
+#define ADS124X_SAMPLE_RATE_5SPS       0x00
+#define ADS124X_SAMPLE_RATE_10SPS      0x01
+#define ADS124X_SAMPLE_RATE_20SPS      0x02
+#define ADS124X_SAMPLE_RATE_40SPS      0x03
+#define ADS124X_SAMPLE_RATE_80SPS      0x04
+#define ADS124X_SAMPLE_RATE_160SPS     0x05
+#define ADS124X_SAMPLE_RATE_320SPS     0x06
+#define ADS124X_SAMPLE_RATE_640SPS     0x07
+#define ADS124X_SAMPLE_RATE_1000SPS    0x08
+#define ADS124X_SAMPLE_RATE_2000SPS    0x09
+
+
 #define ADS124X_CHANNEL(chan) {					\
 	.type = IIO_TEMP,					\
 	.indexed = 1,						\
@@ -366,6 +379,22 @@ ads124x_release_lock:
 }
 
 
+static int ads124x_set_sample_rate(struct ads124x_state *st, u8 sps)
+{
+        u8 result;
+        int ret;
+        ret = ads124x_read_reg(st, ADS124X_REG_SYS0, &result);
+        if (ret < 0)
+                return ret;
+
+        result &= 0x10;
+        result |= sps;
+
+        ret = ads124x_write_reg(st, ADS124X_REG_SYS0, &result, 1);
+
+        return ret;
+}
+
 /*       */
 /* Tests */
 /*       */
@@ -420,6 +449,14 @@ void ads124x_test(struct ads124x_state *st)
                ads124x_get_oscilator_status(st));
 
         ads124x_set_pga_gain(st, 0);
+
+        ads124x_read_reg(st, ADS124X_REG_SYS0, &buf);
+        printk(KERN_INFO "SYS0 = 0x%x\n", buf);
+
+        ads124x_set_sample_rate(st, ADS124X_SAMPLE_RATE_2000SPS);
+
+        ads124x_read_reg(st, ADS124X_REG_SYS0, &buf);
+        printk(KERN_INFO "SYS0 = 0x%x\n", buf);
 
         ads124x_read_reg(st, ADS124X_REG_MUX0, &buf);
         printk(KERN_INFO "MUX0 = 0x%x\n", buf);
