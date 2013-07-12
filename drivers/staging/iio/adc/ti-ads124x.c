@@ -223,22 +223,46 @@ static u32 ads124x_sample_to_32bit(u8 *sample)
 }
 
 
+static void wait_for_drdy(int drdy_gpio)
+{
+        u8 drdy;
+
+        for(;;) {
+                drdy = gpio_get_value(drdy_gpio);
+                printk(KERN_INFO "Waiting for DRDY = 0x%x\n", drdy);
+                if (drdy == 0x00)
+                        return;
+                msleep(20);
+        }
+}
+
 static int ads124x_convert(struct ads124x_state *st)
 {
-        u8 cmd[1];
-        u8 res[3];
+        u8 cmd[1], res[3];
+        u32 res32;
         int ret;
         cmd[0] = ADS124X_SPI_RDATA;
 
+        /* Wait for the SPI bus to receive the register settings made
+         * before this function was called. */
+        wait_for_drdy(st->drdy_gpio);
+
         ret = spi_write(st->spi, cmd, 1);
+
+        /* Wait for conversion results */
+        wait_for_drdy(st->drdy_gpio);
+
         ret = spi_read(st->spi, res, 3);
+
         printk(KERN_INFO "%s: ret: %d\n", __FUNCTION__, ret);
         printk(KERN_INFO "%s: Conversion (hex): %x %x %x\n",
                __FUNCTION__, res[0], res[1], res[2]);
-        printk(KERN_INFO "%s: Conversion (32bit): %d\n",
-               __FUNCTION__, ads124x_sample_to_32bit(res));
 
-        return ads124x_sample_to_32bit(res);
+        res32 = ads124x_sample_to_32bit(res);
+        printk(KERN_INFO "%s: Conversion (32bit): %d\n",
+               __FUNCTION__, res32);
+
+        return res32;
 }
 
 static int ads124x_read_raw(struct iio_dev *indio_dev,
