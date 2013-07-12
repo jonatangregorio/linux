@@ -59,7 +59,7 @@
 
 #define ADS124X_SINGLE_REG    0x00
 
-#define ADS124X_SAMPLE_RATE   2000 /* Number of samples per second */
+#define ADS124X_SAMPLE_RATE   2000
 
 #define ADS124X_CHANNEL(chan) {					\
 	.type = IIO_TEMP,					\
@@ -153,62 +153,13 @@ static int ads124x_write_reg(struct ads124x_state *st,
         write_cmd[1] = ADS124X_SINGLE_REG;
         write_cmd[2] = *buf;
 
-        printk(KERN_DEBUG "%s: cmd[0]=0x%x, cmd[1]=0x%x, cmd[2]=0x%x\n",
-               __FUNCTION__, write_cmd[0], write_cmd[1], write_cmd[2]);
-        
         ret = spi_write(st->spi, write_cmd, 3);
 
         printk(KERN_DEBUG "%s: write ret = %d\n", __FUNCTION__, ret);
-        printk(KERN_DEBUG "%s: DRDY (after write) = 0x%x\n",
-               __FUNCTION__, gpio_get_value(st->drdy_gpio));
 
         return ret;
 }
 
-static int ads124x_select_input(struct ads124x_state *st, unsigned int nr)
-{
-        /* FIXME: assuming nr is a decimal number indicating the input
-         * number. */
-
-        u8 mux0_val;
-
-        ads124x_read_reg(st, ADS124X_REG_MUX0, &mux0_val);
-
-        mux0_val &= ~(1 << 0);
-        mux0_val &= ~(1 << 1);
-        mux0_val &= ~(1 << 2);
-        mux0_val |= (u8)nr;
-
-        return spi_write(st->spi, &mux0_val, 1);
-}
-
-
-static int ads124x_update_scan_mode(struct iio_dev *indio_dev,
-                                    const unsigned long *scan_mask)
-{
-        struct ads124x_state *st = iio_priv(indio_dev);
-
-        /* TODO: check what scan_mask really is and select inputs
-         * according to it */
-        unsigned int nr = find_first_bit(scan_mask, indio_dev->masklength);
-
-        ads124x_select_input(st, nr);
-
-        return 0;
-}
-
-static int ads124x_read_single(struct ads124x_state *st, 
-                               int *val,
-                               unsigned int address)
-{
-        int ret;
-
-        ads124x_select_input(st, address);
-
-        /* TODO */
-
-        return ret;
-}
 
 /*            */
 /* Converting */
@@ -300,7 +251,6 @@ static int ads124x_read_raw(struct iio_dev *indio_dev,
 static const struct iio_info ads124x_iio_info = {
 	.driver_module = THIS_MODULE,
 	.read_raw = &ads124x_read_raw,
-        .update_scan_mode = &ads124x_update_scan_mode,
 	.attrs = &ads124x_attribute_group,
 };
 
@@ -323,10 +273,7 @@ static void ads124x_reset(struct ads124x_state *st)
         int ret;
 
         gpio_set_value(st->reset_gpio, 0);
-        msleep(200);
         gpio_set_value(st->reset_gpio, 1);
-        msleep(200);
-
 
         cmd[0] = ADS124X_SPI_RESET;
         ret = spi_write(st->spi, cmd, 1);
@@ -336,22 +283,6 @@ static void ads124x_reset(struct ads124x_state *st)
         msleep(200);
 
         return;
-}
-
-static int ads124x_wakeup(struct ads124x_state *st)
-{
-        u8 wakeup_cmd[4];
-        int ret;
-        wakeup_cmd[0] = ADS124X_SPI_WAKEUP;
-        wakeup_cmd[1] = ADS124X_SPI_NOP;
-        wakeup_cmd[2] = ADS124X_SPI_NOP;
-        wakeup_cmd[3] = ADS124X_SPI_NOP;
- 
-        ret = spi_write(st->spi, wakeup_cmd, 4);
-
-        printk(KERN_INFO "%s: waking up. ret=%d\n", __FUNCTION__, ret);
-
-        return ret;
 }
 
 /*                            */
@@ -416,8 +347,6 @@ static int ads124x_set_pga_gain(struct ads124x_state *st, u8 gain)
 
         if (ret < 0)
                 goto ads124x_release_lock;
-
-        printk(KERN_DEBUG "%s: Retrent SYS0=0x%x\n", __FUNCTION__, ret);
 
         ret &= ~(1 << 4);
         ret &= ~(1 << 5);
@@ -492,10 +421,23 @@ void ads124x_test(struct ads124x_state *st)
 
         ads124x_set_pga_gain(st, 0);
 
+        ads124x_read_reg(st, ADS124X_REG_MUX0, &buf);
+        printk(KERN_INFO "MUX0 = 0x%x\n", buf);
+
+        buf = 0x13;
+        ads124x_write_reg(st, ADS124X_REG_MUX0, &buf, 1);
+        printk(KERN_INFO "MUX0 = 0x%x\n", buf);
+
         ads124x_read_reg(st, ADS124X_REG_MUX1, &buf);
         printk(KERN_INFO "MUX1 = 0x%x\n", buf);
 
         printk(KERN_INFO "PGA gain = 0x%x\n", ads124x_get_pga_gain(st));
+
+        ads124x_convert(st);
+
+        buf = 0x1b;
+        ads124x_write_reg(st, ADS124X_REG_MUX0, &buf, 1);
+        printk(KERN_INFO "MUX0 = 0x%x\n", buf);
 
         ads124x_convert(st);
 }
@@ -554,7 +496,7 @@ static int ads124x_probe(struct spi_device *spi)
 
         printk(KERN_INFO "%s: reset GPIO=%d\n", __FUNCTION__, st->reset_gpio);
 
-	/* TODO: External ref (move to dt) */
+	/* FIXME: External ref (move to dt) */
         st->vref_mv = 2670;
 
 	spi_set_drvdata(spi, indio_dev);
@@ -594,7 +536,7 @@ static int ads124x_probe(struct spi_device *spi)
 
 error:
 	iio_device_free(indio_dev);
-	dev_err(&spi->dev, "Error while probing.\n");
+	dev_err(&spi->dev, "ADS124x: Error while probing.\n");
 
 	return ret;
 }
