@@ -59,21 +59,6 @@
 
 #define ADS124X_SINGLE_REG    0x00
 
-#define ADS124X_SAMPLE_RATE   2000
-
-/* Sample rates */
-#define ADS124X_SAMPLE_RATE_5SPS       0x00
-#define ADS124X_SAMPLE_RATE_10SPS      0x01
-#define ADS124X_SAMPLE_RATE_20SPS      0x02
-#define ADS124X_SAMPLE_RATE_40SPS      0x03
-#define ADS124X_SAMPLE_RATE_80SPS      0x04
-#define ADS124X_SAMPLE_RATE_160SPS     0x05
-#define ADS124X_SAMPLE_RATE_320SPS     0x06
-#define ADS124X_SAMPLE_RATE_640SPS     0x07
-#define ADS124X_SAMPLE_RATE_1000SPS    0x08
-#define ADS124X_SAMPLE_RATE_2000SPS    0x09
-
-
 #define ADS124X_CHANNEL(chan) {					\
 	.type = IIO_TEMP,					\
 	.indexed = 1,						\
@@ -101,7 +86,6 @@ static struct attribute *ads124x_attributes[] = {
 static const struct attribute_group ads124x_attribute_group = {
 	.attrs = ads124x_attributes,
 };
-
 
 struct ads124x_state {
 	struct spi_device *spi;
@@ -229,43 +213,6 @@ static int ads124x_convert(struct ads124x_state *st)
         return res32;
 }
 
-static int ads124x_read_raw(struct iio_dev *indio_dev,
-                            struct iio_chan_spec const *chan,
-                            int *val, int *val2, long mask)
-{
-	struct ads124x_state *st = iio_priv(indio_dev);
-	int ret;
-
-	switch (mask) {
-	case IIO_CHAN_INFO_RAW:
-		mutex_lock(&st->lock);
-                ret = ads124x_convert(st);
-		mutex_unlock(&st->lock);
-                *val = ret;
-		return IIO_VAL_INT;
-
-	case IIO_CHAN_INFO_SCALE:
-		*val = st->vref_mv;
-		*val2 =  (1 << 23) - 1;
-                return IIO_VAL_FRACTIONAL;
-
-	case IIO_CHAN_INFO_SAMP_FREQ:
-                *val = st->sample_rate;
-                *val2 = 0;
-		return IIO_VAL_INT;
-
-	default:
-		break;
-	}
-
-	return -EINVAL;
-}
-
-static const struct iio_info ads124x_iio_info = {
-	.driver_module = THIS_MODULE,
-	.read_raw = &ads124x_read_raw,
-	.attrs = &ads124x_attribute_group,
-};
 
 /*               */
 /* Start & reset */
@@ -347,6 +294,14 @@ static int ads124x_get_negative_input(struct ads124x_state *st)
         return (ret < 0) ? ret : (result & 0x07);
 }
 
+static int ads124x_get_sample_rate(struct ads124x_state *st)
+{
+        u8 result;
+        int ret;
+        ret = ads124x_read_reg(st, ADS124X_REG_SYS0, &result);
+        return (ret < 0) ? ret : (result & 0x0f);
+}
+
 
 /* Setting registers */
 
@@ -379,7 +334,7 @@ ads124x_release_lock:
 }
 
 
-static int ads124x_set_sample_rate(struct ads124x_state *st, u8 sps)
+static int ads124x_set_sample_rate(struct ads124x_state *st)
 {
         u8 result;
         int ret;
@@ -387,13 +342,94 @@ static int ads124x_set_sample_rate(struct ads124x_state *st, u8 sps)
         if (ret < 0)
                 return ret;
 
-        result &= 0x10;
-        result |= sps;
+        result |= 0x0f & st->sample_rate;
 
         ret = ads124x_write_reg(st, ADS124X_REG_SYS0, &result, 1);
 
         return ret;
 }
+
+static int ads124x_read_raw(struct iio_dev *indio_dev,
+                            struct iio_chan_spec const *chan,
+                            int *val, int *val2, long mask)
+{
+	struct ads124x_state *st = iio_priv(indio_dev);
+	int ret;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_RAW:
+		mutex_lock(&st->lock);
+                ret = ads124x_convert(st);
+		mutex_unlock(&st->lock);
+                *val = ret;
+		return IIO_VAL_INT;
+
+	case IIO_CHAN_INFO_SCALE:
+		*val = st->vref_mv;
+		*val2 =  (1 << 23) - 1;
+                return IIO_VAL_FRACTIONAL;
+
+	case IIO_CHAN_INFO_SAMP_FREQ:
+                *val = ads124x_sample_freq_avail[st->sample_rate];
+                *val2 = 0;
+		return IIO_VAL_INT;
+
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
+
+static int ads124x_write_raw(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan,
+			     int val, int val2, long mask)
+{
+	struct ads124x_state *st = iio_priv(indio_dev);
+	int ret;
+        u8 i;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_SCALE:
+		for (i = 0; i < 8; i++) /* 8 possible values for PGA gain */
+			if (val2 == i)
+				return ads124x_set_pga_gain(st, 1 << i);
+		break;
+
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		for (i = 0; i < ARRAY_SIZE(ads124x_sample_freq_avail); i++)
+			if (val == ads124x_sample_freq_avail[i]) {
+                                mutex_lock(&st->lock);
+                                st->sample_rate = i;
+                                ret = ads124x_set_sample_rate(st);
+                                mutex_unlock(&st->lock);
+                                return ret;
+                                break;
+                        }
+
+	default:
+		break;
+	}
+
+	return -EINVAL;
+}
+
+static int ads124x_write_raw_get_fmt(struct iio_dev *indio_dev,
+				     struct iio_chan_spec const *chan,
+				     long mask)
+{
+	return IIO_VAL_INT_PLUS_NANO;
+}
+
+static const struct iio_info ads124x_iio_info = {
+	.driver_module = THIS_MODULE,
+	.read_raw = &ads124x_read_raw,
+	.write_raw = &ads124x_write_raw,
+	.write_raw_get_fmt = ads124x_write_raw_get_fmt,
+	.attrs = &ads124x_attribute_group,
+};
+
 
 /*       */
 /* Tests */
@@ -452,8 +488,6 @@ void ads124x_test(struct ads124x_state *st)
 
         ads124x_read_reg(st, ADS124X_REG_SYS0, &buf);
         printk(KERN_INFO "SYS0 = 0x%x\n", buf);
-
-        ads124x_set_sample_rate(st, ADS124X_SAMPLE_RATE_2000SPS);
 
         ads124x_read_reg(st, ADS124X_REG_SYS0, &buf);
         printk(KERN_INFO "SYS0 = 0x%x\n", buf);
@@ -550,7 +584,7 @@ static int ads124x_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ads124x_iio_info;
 
-        st->sample_rate = ADS124X_SAMPLE_RATE;
+        st->sample_rate = 0;
 
 	/* Setup the ADC channels available on the board */
 	indio_dev->num_channels = ARRAY_SIZE(ads124x_chan_array);
