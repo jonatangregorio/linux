@@ -70,7 +70,11 @@
 }
 
 static const struct iio_chan_spec ads124x_chan_array[] = {
-	ADS124X_CHANNEL(0),
+	ADS124X_CHANNEL(0),  /* 0-3 */
+	ADS124X_CHANNEL(1),  /* 1-3 */
+	ADS124X_CHANNEL(2),  /* 2-3 */
+	ADS124X_CHANNEL(3),  /* 0-1 */
+	ADS124X_CHANNEL(4),  /* 1-2 */
 };
 
 static const u16 ads124x_sample_freq_avail[] = {5, 10, 20, 40, 80, 160,
@@ -304,6 +308,41 @@ static int ads124x_get_sample_rate(struct ads124x_state *st)
 
 
 /* Setting registers */
+static int ads124x_select_input(struct ads124x_state *st, int channel_index)
+{
+        u8 mux0;
+        int ret;
+
+        ret = ads124x_read_reg(st, ADS124X_REG_MUX0, &mux0);
+
+        if (ret < 0)
+                return ret;
+
+        /* Only keep the two most significant bits */
+        mux0 &= 0xc0;
+
+        switch (channel_index) {
+        case 0: /* 0-3 */
+                mux0 |= 0x03;
+                break;
+        case 1: /* 1-3 */
+                mux0 |= 0x0d;
+                break;
+        case 2: /* 2-3 */
+                mux0 |= 0x13;
+                break;
+        case 3: /* 0-1 */
+                mux0 |= 0x01;
+                break;
+        case 4: /* 1-2 */
+                mux0 |= 0x0a;
+                break;
+        }
+
+        ret = ads124x_write_reg(st, ADS124X_REG_MUX0, &mux0, 1);
+
+        return ret;
+}
 
 static int ads124x_set_pga_gain(struct ads124x_state *st, u8 gain)
 {
@@ -358,7 +397,10 @@ static int ads124x_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
+                printk(KERN_INFO "========================== channel=%d\n", chan->channel);
 		mutex_lock(&st->lock);
+                ads124x_select_input(st, chan->channel);
+                wait_for_drdy(st->drdy_gpio);
                 ret = ads124x_convert(st);
 		mutex_unlock(&st->lock);
                 *val = ret;
