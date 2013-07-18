@@ -59,24 +59,6 @@
 
 #define ADS124X_SINGLE_REG    0x00
 
-#define ADS124X_CHANNEL(chan) {					\
-	.type = IIO_TEMP,					\
-	.indexed = 1,						\
-	.channel = (chan),					\
-	.scan_index = (chan),					\
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),		\
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |	\
-				BIT(IIO_CHAN_INFO_SAMP_FREQ)	\
-}
-
-static const struct iio_chan_spec ads124x_chan_array[] = {
-	ADS124X_CHANNEL(0),  /* 0-3 */
-	ADS124X_CHANNEL(1),  /* 1-3 */
-	ADS124X_CHANNEL(2),  /* 2-3 */
-	ADS124X_CHANNEL(3),  /* 0-1 */
-	ADS124X_CHANNEL(4),  /* 1-2 */
-};
-
 static const u16 ads124x_sample_freq_avail[] = {5, 10, 20, 40, 80, 160,
                                                 320, 640, 1000, 2000};
 
@@ -308,7 +290,9 @@ static int ads124x_get_sample_rate(struct ads124x_state *st)
 
 
 /* Setting registers */
-static int ads124x_select_input(struct ads124x_state *st, int channel_index)
+static int ads124x_select_input(struct ads124x_state *st,
+                                struct iio_dev *indio_dev,
+                                struct iio_chan_spec const *chan)
 {
         u8 mux0;
         int ret;
@@ -318,26 +302,11 @@ static int ads124x_select_input(struct ads124x_state *st, int channel_index)
         if (ret < 0)
                 return ret;
 
-        /* Only keep the two most significant bits */
+        /* Preserve the two most significant bits */
         mux0 &= 0xc0;
 
-        switch (channel_index) {
-        case 0: /* 0-3 */
-                mux0 |= 0x03;
-                break;
-        case 1: /* 1-3 */
-                mux0 |= 0x0d;
-                break;
-        case 2: /* 2-3 */
-                mux0 |= 0x13;
-                break;
-        case 3: /* 0-1 */
-                mux0 |= 0x01;
-                break;
-        case 4: /* 1-2 */
-                mux0 |= 0x0a;
-                break;
-        }
+        /* Select positive and negative inputs */
+        mux0 |= (chan->channel << 3) | chan->channel2;
 
         ret = ads124x_write_reg(st, ADS124X_REG_MUX0, &mux0, 1);
 
@@ -397,9 +366,8 @@ static int ads124x_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-                printk(KERN_INFO "========================== channel=%d\n", chan->channel);
 		mutex_lock(&st->lock);
-                ads124x_select_input(st, chan->channel);
+                ads124x_select_input(st, indio_dev, chan);
                 wait_for_drdy(st->drdy_gpio);
                 ret = ads124x_convert(st);
 		mutex_unlock(&st->lock);
@@ -562,6 +530,51 @@ void ads124x_test(struct ads124x_state *st)
 /* Probing, removing and binding to spi */
 /*                                      */
 
+static int ads124x_init_chan_array(struct iio_dev *indio_dev,
+                                   struct device_node *np)
+{
+        struct iio_chan_spec *chan_array;
+        int num_inputs = indio_dev->num_channels * 2;
+        int *channels_config;
+        int i, ret;
+
+        channels_config = kcalloc(num_inputs,
+                                  sizeof(u32),
+                                  GFP_KERNEL);
+
+        ret = of_property_read_u32_array(np, "channels",
+                                         channels_config, num_inputs);
+        if (ret < 0)
+                return ret;
+
+        chan_array = kcalloc(indio_dev->num_channels,
+                             sizeof(struct iio_chan_spec),
+                             GFP_KERNEL);
+
+        if (chan_array == NULL)
+                return -ENOMEM;
+
+        for (i = 0; i < num_inputs; i++) {
+                if (i % 2 == 0) { /* Group inputs into pairs */
+                        struct iio_chan_spec *chan = chan_array + (i / 2);
+                        chan->type = IIO_TEMP;
+                        chan->indexed = 1;
+                        chan->channel = channels_config[i];
+                        chan->channel2 = channels_config[i + 1];
+                        chan->differential = 1;
+                        chan->scan_index = i;
+                        chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
+                        chan->info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |
+                                BIT(IIO_CHAN_INFO_SAMP_FREQ);
+                        chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
+                }
+        }
+
+        indio_dev->channels = chan_array;
+
+        return indio_dev->num_channels;
+}
+
 static int ads124x_probe(struct spi_device *spi)
 {
 	struct device_node *np = spi->dev.of_node;
@@ -629,8 +642,11 @@ static int ads124x_probe(struct spi_device *spi)
         st->sample_rate = 0;
 
 	/* Setup the ADC channels available on the board */
-	indio_dev->num_channels = ARRAY_SIZE(ads124x_chan_array);
-	indio_dev->channels = ads124x_chan_array;
+        ret = of_property_read_u32(np, "#channels", &indio_dev->num_channels);
+        if (ret < 0)
+                goto error; /* FIXME: raise a decent error */
+
+        ads124x_init_chan_array(indio_dev, np);
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
