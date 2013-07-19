@@ -398,7 +398,6 @@ static int ads124x_init_chan_array(struct iio_dev *indio_dev,
                 chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
                 chan->info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |
                         BIT(IIO_CHAN_INFO_SAMP_FREQ);
-                chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
         }
 
         indio_dev->channels = chan_array;
