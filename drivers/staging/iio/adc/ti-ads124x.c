@@ -348,18 +348,10 @@ static int ads124x_write_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
-static int ads124x_write_raw_get_fmt(struct iio_dev *indio_dev,
-				     struct iio_chan_spec const *chan,
-				     long mask)
-{
-	return IIO_VAL_INT_PLUS_NANO;
-}
-
 static const struct iio_info ads124x_iio_info = {
 	.driver_module = THIS_MODULE,
 	.read_raw = &ads124x_read_raw,
 	.write_raw = &ads124x_write_raw,
-	.write_raw_get_fmt = ads124x_write_raw_get_fmt,
 	.attrs = &ads124x_attribute_group,
 };
 
@@ -427,7 +419,6 @@ static int ads124x_probe(struct spi_device *spi)
 	st->drdy_gpio = of_get_named_gpio(np, "drdy-gpio", 0);
 	st->start_gpio = of_get_named_gpio(np, "start-gpio", 0);
 	st->reset_gpio = of_get_named_gpio(np, "reset-gpio", 0);
-
 
         err = devm_gpio_request_one(&indio_dev->dev, st->drdy_gpio,
                                     GPIOF_IN, "adc-drdy");
