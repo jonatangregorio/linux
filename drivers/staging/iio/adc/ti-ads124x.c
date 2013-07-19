@@ -154,7 +154,7 @@ static void wait_for_drdy(int drdy_gpio)
                 drdy = gpio_get_value(drdy_gpio);
                 if (drdy == 0x00)
                         return;
-                msleep(20);
+                msleep(1);
         }
 }
 
