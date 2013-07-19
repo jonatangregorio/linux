@@ -82,10 +82,6 @@ struct ads124x_state {
         int sample_rate;
 
         struct mutex lock;
-
-        /* FIXME: this is the data buffer.  Understand it better and */
-        /* maybe fix types/size */
-        int data[8] ____cacheline_aligned;
 };
 
 static const struct of_device_id ads124x_ids[] = {
