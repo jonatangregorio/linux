@@ -387,20 +387,18 @@ static int ads124x_init_chan_array(struct iio_dev *indio_dev,
         if (chan_array == NULL)
                 return -ENOMEM;
 
-        for (i = 0; i < num_inputs; i++) {
-                if (i % 2 == 0) { /* Group inputs into pairs */
-                        struct iio_chan_spec *chan = chan_array + (i / 2);
-                        chan->type = IIO_TEMP;
-                        chan->indexed = 1;
-                        chan->channel = channels_config[i];
-                        chan->channel2 = channels_config[i + 1];
-                        chan->differential = 1;
-                        chan->scan_index = i;
-                        chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
-                        chan->info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |
-                                BIT(IIO_CHAN_INFO_SAMP_FREQ);
-                        chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
-                }
+        for (i = 0; i < num_inputs; i += 2) {
+                struct iio_chan_spec *chan = chan_array + (i / 2);
+                chan->type = IIO_TEMP;
+                chan->indexed = 1;
+                chan->channel = channels_config[i];
+                chan->channel2 = channels_config[i + 1];
+                chan->differential = 1;
+                chan->scan_index = i;
+                chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
+                chan->info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |
+                        BIT(IIO_CHAN_INFO_SAMP_FREQ);
+                chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW);
         }
 
         indio_dev->channels = chan_array;
