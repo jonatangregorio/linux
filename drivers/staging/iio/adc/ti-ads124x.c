@@ -402,9 +402,7 @@ static int ads124x_probe(struct spi_device *spi)
 	struct device_node *np = spi->dev.of_node;
 	struct iio_dev *indio_dev;
 	struct ads124x_state *st;
-	int ret = -ENODEV;
-        int status;
-        int err;
+	int ret;
 
         printk(KERN_INFO "%s: probing\n", __FUNCTION__);
         printk(KERN_INFO "%s: speed: %d\n", __FUNCTION__, spi->max_speed_hz);
@@ -415,57 +413,56 @@ static int ads124x_probe(struct spi_device *spi)
 
         st = iio_priv(indio_dev);
 
-	/* Read node values */
+        /* Initialize GPIO pins */
 	st->drdy_gpio = of_get_named_gpio(np, "drdy-gpio", 0);
 	st->start_gpio = of_get_named_gpio(np, "start-gpio", 0);
 	st->reset_gpio = of_get_named_gpio(np, "reset-gpio", 0);
 
-        err = devm_gpio_request_one(&indio_dev->dev, st->drdy_gpio,
+        ret = devm_gpio_request_one(&indio_dev->dev, st->drdy_gpio,
                                     GPIOF_IN, "adc-drdy");
-        if (err) {
-                dev_err(&indio_dev->dev, "failed to get adc-drdy-gpios: %d\n", err);
-                return err;
+        if (ret) {
+                dev_err(&indio_dev->dev, "failed to get adc-drdy-gpios: %d\n", ret);
+                goto error;
         }
 
-        err = devm_gpio_request_one(&indio_dev->dev, st->start_gpio,
+        ret = devm_gpio_request_one(&indio_dev->dev, st->start_gpio,
                                     GPIOF_OUT_INIT_LOW, "adc-start");
-        if (err) {
-                dev_err(&indio_dev->dev, "failed to get adc-start-gpios: %d\n", err);
-                return err;
+        if (ret) {
+                dev_err(&indio_dev->dev, "failed to get adc-start-gpios: %d\n", ret);
+                goto error;
         }
 
-        err = devm_gpio_request_one(&indio_dev->dev, st->reset_gpio,
+        ret = devm_gpio_request_one(&indio_dev->dev, st->reset_gpio,
                                     GPIOF_OUT_INIT_LOW, "adc-reset");
-        if (err) {
-                dev_err(&indio_dev->dev, "failed to get adc-reset-gpios: %d\n", err);
-                return err;
+        if (ret) {
+                dev_err(&indio_dev->dev, "failed to get adc-reset-gpios: %d\n", ret);
+                goto error;
         }
 
         ret = of_property_read_u32(np, "vref-mv", &st->vref_mv);
         if (ret < 0)
-                goto error; /* FIXME: raise a decent error */
+                goto error;
 
+        /* Initialize SPI */
 	spi_set_drvdata(spi, indio_dev);
 	st->spi = spi;
-
         st->spi->mode = SPI_MODE_1;
         st->spi->bits_per_word = 8;
-
-        status = spi_setup(spi);
+        ret = spi_setup(spi);
 
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = np->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ads124x_iio_info;
 
-        st->sample_rate = 0;
-
 	/* Setup the ADC channels available on the board */
         ret = of_property_read_u32(np, "#channels", &indio_dev->num_channels);
         if (ret < 0)
-                goto error; /* FIXME: raise a decent error */
+                goto error;
 
-        ads124x_init_chan_array(indio_dev, np);
+        ret = ads124x_init_chan_array(indio_dev, np);
+        if (ret < 0)
+                goto error;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
