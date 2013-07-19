@@ -165,10 +165,6 @@ static int ads124x_convert(struct ads124x_state *st)
         int ret;
         cmd[0] = ADS124X_SPI_RDATA;
 
-        /* Wait for the SPI bus to receive the register settings made
-         * before this function was called. */
-        wait_for_drdy(st->drdy_gpio);
-
         ret = spi_write(st->spi, cmd, 1);
 
         /* Wait for conversion results */
