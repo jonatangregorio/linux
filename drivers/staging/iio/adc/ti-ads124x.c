@@ -78,7 +78,7 @@ struct ads124x_state {
 	int drdy_gpio;
 	int start_gpio;
 	int reset_gpio;
-	int vref_mv;
+	u32 vref_mv;
         int sample_rate;
 
         struct mutex lock;
@@ -151,7 +151,6 @@ static u32 ads124x_sample_to_32bit(u8 *sample)
         sample32 |= sample[2];
         return sign_extend32(sample32, 23);
 }
-
 
 static void wait_for_drdy(int drdy_gpio)
 {
@@ -618,8 +617,9 @@ static int ads124x_probe(struct spi_device *spi)
 
         printk(KERN_INFO "%s: reset GPIO=%d\n", __FUNCTION__, st->reset_gpio);
 
-	/* FIXME: External ref (move to dt) */
-        st->vref_mv = 2670;
+        ret = of_property_read_u32(np, "vref-mv", &st->vref_mv);
+        if (ret < 0)
+                goto error; /* FIXME: raise a decent error */
 
 	spi_set_drvdata(spi, indio_dev);
 	st->spi = spi;

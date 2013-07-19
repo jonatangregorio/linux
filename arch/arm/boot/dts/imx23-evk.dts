@@ -116,6 +116,7 @@
 					start-gpio = <&gpio0 14 0>;
 					reset-gpio = <&gpio0 15 0>;
 					spi-max-frequency = <2000000>;
+                                        vref-mv = <2670>;
                                         #channels = <2>;
                                         channels = <0 1 2 3>;
 					reg = <0>;
