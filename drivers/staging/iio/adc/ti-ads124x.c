@@ -134,15 +134,9 @@ static int ads124x_write_reg(struct ads124x_state *st,
 
         ret = spi_write(st->spi, write_cmd, 3);
 
-        printk(KERN_DEBUG "%s: write ret = %d\n", __FUNCTION__, ret);
-
         return ret;
 }
 
-
-/*            */
-/* Converting */
-/*            */
 static u32 ads124x_sample_to_32bit(u8 *sample)
 {
         int sample32 = 0;
@@ -158,7 +152,6 @@ static void wait_for_drdy(int drdy_gpio)
 
         for(;;) {
                 drdy = gpio_get_value(drdy_gpio);
-                printk(KERN_INFO "Waiting for DRDY = 0x%x\n", drdy);
                 if (drdy == 0x00)
                         return;
                 msleep(20);
@@ -183,21 +176,11 @@ static int ads124x_convert(struct ads124x_state *st)
 
         ret = spi_read(st->spi, res, 3);
 
-        printk(KERN_INFO "%s: ret: %d\n", __FUNCTION__, ret);
-        printk(KERN_INFO "%s: Conversion (hex): %x %x %x\n",
-               __FUNCTION__, res[0], res[1], res[2]);
-
         res32 = ads124x_sample_to_32bit(res);
-        printk(KERN_INFO "%s: Conversion (32bit): %d\n",
-               __FUNCTION__, res32);
 
         return res32;
 }
 
-
-/*               */
-/* Start & reset */
-/*               */
 static void ads124x_start(struct ads124x_state *st)
 {
         gpio_set_value(st->start_gpio, 1);
@@ -219,68 +202,19 @@ static void ads124x_reset(struct ads124x_state *st)
         cmd[0] = ADS124X_SPI_RESET;
         ret = spi_write(st->spi, cmd, 1);
 
-        printk(KERN_INFO "%s: resetting. ret = %d\n", __FUNCTION__, ret);
-
         msleep(200);
 
         return;
 }
 
-/*                            */
-/* Information from registers */
-/*                            */
-
-static int ads124x_get_oscilator_status(struct ads124x_state *st) {
-        /* 0 => Internal oscilator */
-        /* 1 => External oscilator */
-        u8 result;
-        int ret;
-
-        ret = ads124x_read_reg(st, ADS124X_REG_MUX1, &result);
-        return (ret < 0) ? ret : (result & 0x01);
-}
-
 static int ads124x_get_pga_gain(struct ads124x_state *st)
 {
+
         u8 result;
         int ret;
 
         ret = ads124x_read_reg(st, ADS124X_REG_SYS0, &result);
         return (ret < 0) ? ret : (result & 0x70);
-}
-
-static int ads124x_get_output_data_rate(struct ads124x_state *st)
-{
-        u8 result;
-        int ret;
-
-        ret = ads124x_read_reg(st, ADS124X_REG_SYS0, &result);
-        return (ret < 0) ? ret : (result & 0x0f);
-}
-
-static int ads124x_get_adc_id(struct ads124x_state *st)
-{
-        u8 result;
-        int ret;
-
-        ret = ads124x_read_reg(st, ADS124X_REG_IDAC0, &result);
-        return (ret < 0) ? ret : (result >> 4);
-}
-
-static int ads124x_get_negative_input(struct ads124x_state *st)
-{
-        u8 result;
-        int ret;
-        ret = ads124x_read_reg(st, ADS124X_REG_MUX0, &result);
-        return (ret < 0) ? ret : (result & 0x07);
-}
-
-static int ads124x_get_sample_rate(struct ads124x_state *st)
-{
-        u8 result;
-        int ret;
-        ret = ads124x_read_reg(st, ADS124X_REG_SYS0, &result);
-        return (ret < 0) ? ret : (result & 0x0f);
 }
 
 
@@ -323,8 +257,6 @@ static int ads124x_set_pga_gain(struct ads124x_state *st, u8 gain)
         ret &= ~(1 << 5);
         ret &= ~(1 << 6);
         gain = ret | (gain << 4);
-        
-        printk(KERN_DEBUG "%s: Setting gain=0x%x\n", __FUNCTION__, gain);
 
         ret = ads124x_write_reg(st, ADS124X_REG_SYS0, &gain, 1);
 
@@ -435,96 +367,6 @@ static const struct iio_info ads124x_iio_info = {
 	.attrs = &ads124x_attribute_group,
 };
 
-
-/*       */
-/* Tests */
-/*       */
-
-#define ADS124X_TEST
-
-#ifdef ADS124X_TEST
-
-#define ads124x_ok printk(KERN_INFO "    PASSED")
-#define ads124x_fail printk(KERN_INFO "    FAILED!")
-
-void ads124x_test(struct ads124x_state *st)
-{
-        int res;
-        u8 buf;
-
-        printk(KERN_INFO "=== Testing negative input\n");
-        res = ads124x_get_negative_input(st);
-        if (res == 0x01)
-                ads124x_ok;
-        else {
-                ads124x_fail;
-                printk(KERN_INFO "Expected %x, got %x\n", 0x01, res);
-        }
-
-        printk(KERN_INFO "=== Testing PGA gain (setting to 2)\n");
-        ads124x_set_pga_gain(st, 2);
-        res = ads124x_get_pga_gain(st);
-        if (res == 0x20)
-                ads124x_ok;
-        else {
-                ads124x_fail;
-                printk(KERN_INFO "Expected %x, got %x\n", 0x20, res);
-        }
-
-        printk(KERN_INFO "=== Testing PGA gain (setting to 5)\n");
-        ads124x_set_pga_gain(st, 5);
-        res = ads124x_get_pga_gain(st);
-        if (res == 0x50)
-                ads124x_ok;
-        else {
-                ads124x_fail;
-                printk(KERN_INFO "Expected %x, got %x\n", 0x50, res);
-        }
-
-        printk(KERN_INFO "ADS124x: ID=%x\n", ads124x_get_adc_id(st));
-
-        printk(KERN_INFO "ADS124x: Output data rate=%x\n",
-               ads124x_get_output_data_rate(st));
-
-        printk(KERN_INFO "ADS124x: Oscilator status=%x\n",
-               ads124x_get_oscilator_status(st));
-
-        ads124x_set_pga_gain(st, 0);
-
-        ads124x_read_reg(st, ADS124X_REG_SYS0, &buf);
-        printk(KERN_INFO "SYS0 = 0x%x\n", buf);
-
-        ads124x_read_reg(st, ADS124X_REG_SYS0, &buf);
-        printk(KERN_INFO "SYS0 = 0x%x\n", buf);
-
-        ads124x_read_reg(st, ADS124X_REG_MUX0, &buf);
-        printk(KERN_INFO "MUX0 = 0x%x\n", buf);
-
-        buf = 0x13;
-        ads124x_write_reg(st, ADS124X_REG_MUX0, &buf, 1);
-        printk(KERN_INFO "MUX0 = 0x%x\n", buf);
-
-        ads124x_read_reg(st, ADS124X_REG_MUX1, &buf);
-        printk(KERN_INFO "MUX1 = 0x%x\n", buf);
-
-        printk(KERN_INFO "PGA gain = 0x%x\n", ads124x_get_pga_gain(st));
-
-        ads124x_convert(st);
-
-        buf = 0x1b;
-        ads124x_write_reg(st, ADS124X_REG_MUX0, &buf, 1);
-        printk(KERN_INFO "MUX0 = 0x%x\n", buf);
-
-        ads124x_convert(st);
-}
-
-#endif
-
-
-/*                                      */
-/* Probing, removing and binding to spi */
-/*                                      */
-
 static int ads124x_init_chan_array(struct iio_dev *indio_dev,
                                    struct device_node *np)
 {
@@ -615,8 +457,6 @@ static int ads124x_probe(struct spi_device *spi)
                 return err;
         }
 
-        printk(KERN_INFO "%s: reset GPIO=%d\n", __FUNCTION__, st->reset_gpio);
-
         ret = of_property_read_u32(np, "vref-mv", &st->vref_mv);
         if (ret < 0)
                 goto error; /* FIXME: raise a decent error */
@@ -628,7 +468,6 @@ static int ads124x_probe(struct spi_device *spi)
         st->spi->bits_per_word = 8;
 
         status = spi_setup(spi);
-        printk(KERN_INFO "%s: spi_setup returned %d\n", __FUNCTION__, status);
 
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = np->name;
@@ -654,9 +493,6 @@ static int ads124x_probe(struct spi_device *spi)
 
         mutex_init(&st->lock);
 
-#ifdef ADS124X_TEST
-        ads124x_test(st);
-#endif
 	return 0;
 
 error:
