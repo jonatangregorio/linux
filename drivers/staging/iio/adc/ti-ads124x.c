@@ -249,10 +249,7 @@ static int ads124x_set_pga_gain(struct ads124x_state *st, u8 gain)
         if (ret < 0)
                 goto ads124x_release_lock;
 
-        ret &= ~(1 << 4);
-        ret &= ~(1 << 5);
-        ret &= ~(1 << 6);
-        gain = ret | (gain << 4);
+        gain = (ret & 0x8f) | (gain << 4);
 
         ret = ads124x_write_reg(st, ADS124X_REG_SYS0, &gain, 1);
 
