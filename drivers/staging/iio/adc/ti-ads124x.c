@@ -62,10 +62,15 @@
 static const u16 ads124x_sample_freq_avail[] = {5, 10, 20, 40, 80, 160,
                                                 320, 640, 1000, 2000};
 
+static const u8 ads124x_sample_gain_avail[] = {1, 2, 4, 8, 16, 32, 64, 128};
+
 static IIO_CONST_ATTR_SAMP_FREQ_AVAIL("5 10 20 40 80 160 320 640 1000 2000");
+
+static IIO_CONST_ATTR(sampling_gain_available, "1 2 4 8 16 32 64 128");
 
 static struct attribute *ads124x_attributes[] = {
 	&iio_const_attr_sampling_frequency_available.dev_attr.attr,
+        &iio_const_attr_sampling_gain_available.dev_attr.attr,
 	NULL
 };
 
