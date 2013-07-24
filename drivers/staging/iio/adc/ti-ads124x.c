@@ -340,8 +340,8 @@ static int ads124x_write_raw(struct iio_dev *indio_dev,
                                 ret = ads124x_set_sample_rate(st);
                                 mutex_unlock(&st->lock);
                                 return ret;
-                                break;
                         }
+                break;
 
 	default:
 		break;
