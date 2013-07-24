@@ -328,9 +328,9 @@ static int ads124x_write_raw(struct iio_dev *indio_dev,
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
 		for (i = 0; i < 8; i++) /* 8 possible values for PGA gain */
-			if (val2 == i)
-				return ads124x_set_pga_gain(st, 1 << i);
-		break;
+			if (val == ads124x_sample_gain_avail[i])
+				return ads124x_set_pga_gain(st, i);
+                break;
 
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		for (i = 0; i < ARRAY_SIZE(ads124x_sample_freq_avail); i++)
