@@ -157,7 +157,7 @@ static void wait_for_drdy(int drdy_gpio)
 
         for(;;) {
                 drdy = gpio_get_value(drdy_gpio);
-                if (drdy == 0x00)
+                if (!drdy)
                         return;
                 msleep(1);
         }
@@ -203,14 +203,13 @@ static void ads124x_reset(struct ads124x_state *st)
         cmd[0] = ADS124X_SPI_RESET;
         ret = spi_write(st->spi, cmd, 1);
 
-        msleep(200);
+        msleep(200); /* FIXME: that's arbitrary. */
 
         return;
 }
 
 static int ads124x_get_pga_gain(struct ads124x_state *st)
 {
-
         u8 result;
         int ret;
 
@@ -218,8 +217,6 @@ static int ads124x_get_pga_gain(struct ads124x_state *st)
         return (ret < 0) ? ret : (result & 0x70);
 }
 
-
-/* Setting registers */
 static int ads124x_select_input(struct ads124x_state *st,
                                 struct iio_dev *indio_dev,
                                 struct iio_chan_spec const *chan)
