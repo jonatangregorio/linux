@@ -208,15 +208,6 @@ static void ads124x_reset(struct ads124x_state *st)
         return;
 }
 
-static int ads124x_get_pga_gain(struct ads124x_state *st)
-{
-        u8 result;
-        int ret;
-
-        ret = ads124x_read_reg(st, ADS124X_REG_SYS0, &result);
-        return (ret < 0) ? ret : (result & 0x70);
-}
-
 static int ads124x_select_input(struct ads124x_state *st,
                                 struct iio_dev *indio_dev,
                                 struct iio_chan_spec const *chan)
@@ -243,22 +234,20 @@ static int ads124x_select_input(struct ads124x_state *st,
 static int ads124x_set_pga_gain(struct ads124x_state *st, u8 gain)
 {
         int ret;
+        u8 sys0;
 
         mutex_lock(&st->lock);
 
-        ret = ads124x_get_pga_gain(st);
+        ret = ads124x_read_reg(st, ADS124X_REG_SYS0, &sys0);
 
         if (ret < 0)
-                goto ads124x_release_lock;
+                goto release_lock_and_return;
 
-        gain = (ret & 0x8f) | (gain << 4);
+        sys0 = (sys0 & 0x8f) | (gain << 4);
 
-        ret = ads124x_write_reg(st, ADS124X_REG_SYS0, &gain, 1);
+        ret = ads124x_write_reg(st, ADS124X_REG_SYS0, &sys0, 1);
 
-        if (ret < 0)
-                goto ads124x_release_lock;
-
-ads124x_release_lock:
+release_lock_and_return:
         mutex_unlock(&st->lock);
         return ret;
 }
