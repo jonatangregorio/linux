@@ -215,10 +215,12 @@ static int ads124x_select_input(struct ads124x_state *st,
         u8 mux0;
         int ret;
 
+        mutex_lock(&st->lock);
+
         ret = ads124x_read_reg(st, ADS124X_REG_MUX0, &mux0);
 
         if (ret < 0)
-                return ret;
+                goto release_lock_and_return;
 
         /* Preserve the two most significant bits */
         mux0 &= 0xc0;
@@ -228,6 +230,8 @@ static int ads124x_select_input(struct ads124x_state *st,
 
         ret = ads124x_write_reg(st, ADS124X_REG_MUX0, &mux0, 1);
 
+release_lock_and_return:
+        mutex_unlock(&st->lock);
         return ret;
 }
 
@@ -277,11 +281,9 @@ static int ads124x_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		mutex_lock(&st->lock);
                 ads124x_select_input(st, indio_dev, chan);
                 wait_for_drdy(st->drdy_gpio);
                 ret = ads124x_convert(st);
-		mutex_unlock(&st->lock);
                 *val = ret;
 		return IIO_VAL_INT;
 
