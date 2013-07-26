@@ -256,15 +256,15 @@ release_lock_and_return:
 
 static int ads124x_set_sample_rate(struct ads124x_state *st)
 {
-	u8 result;
+	u8 sys0;
 	int ret;
-	ret = ads124x_read_reg(st, ADS124X_REG_SYS0, &result);
+	ret = ads124x_read_reg(st, ADS124X_REG_SYS0, &sys0);
 	if (ret < 0)
 		return ret;
 
-	result |= 0x0f & st->sample_rate;
+	sys0 |= 0x0f & st->sample_rate;
 
-	ret = ads124x_write_reg(st, ADS124X_REG_SYS0, &result, 1);
+	ret = ads124x_write_reg(st, ADS124X_REG_SYS0, &sys0, 1);
 
 	return ret;
 }
