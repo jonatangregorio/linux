@@ -65,6 +65,13 @@
 	};
 };
 
+&ecspi3 {
+	cs-gpios = <&gpio4 11 GPIO_ACTIVE_LOW>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi3>;
+	status = "okay";
+};
+
 &fec1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enet1>;
@@ -316,6 +323,15 @@
 };
 
 &iomuxc {
+	pinctrl_ecspi3: ecspi3grp {
+		fsl,pins = <
+			MX7D_PAD_I2C1_SCL__ECSPI3_MISO		0x2
+			MX7D_PAD_I2C1_SDA__ECSPI3_MOSI		0x2
+			MX7D_PAD_I2C2_SCL__ECSPI3_SCLK		0x2
+			MX7D_PAD_I2C2_SDA__GPIO4_IO11		0x14
+		>;
+	};
+
 	pinctrl_i2c1: i2c1grp {
 		fsl,pins = <
 			MX7D_PAD_UART1_TX_DATA__I2C1_SDA	0x4000007f
