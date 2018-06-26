@@ -89,6 +89,18 @@
 	};
 };
 
+&flexcan1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can1>;
+	status = "okay";
+};
+
+&flexcan2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can2>;
+	status = "okay";
+};
+
 &i2c1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c1>;
@@ -259,6 +271,20 @@
 			MX7D_PAD_ENET1_RGMII_RD2__ENET1_RGMII_RD2	0x1
 			MX7D_PAD_ENET1_RGMII_RD3__ENET1_RGMII_RD3	0x1
 			MX7D_PAD_ENET1_RGMII_RX_CTL__ENET1_RGMII_RX_CTL	0x1
+		>;
+	};
+
+	pinctrl_can1: can1frp {
+		fsl,pins = <
+			MX7D_PAD_SAI1_RX_DATA__FLEXCAN1_RX	0x59
+			MX7D_PAD_SAI1_TX_BCLK__FLEXCAN1_TX	0x59
+		>;
+	};
+
+	pinctrl_can2: can2frp {
+		fsl,pins = <
+			MX7D_PAD_SAI1_TX_SYNC__FLEXCAN2_RX	0x59
+			MX7D_PAD_SAI1_TX_DATA__FLEXCAN2_TX	0x59
 		>;
 	};
 
