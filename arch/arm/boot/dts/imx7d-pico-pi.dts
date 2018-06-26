@@ -48,16 +48,6 @@
 	status = "okay";
 };
 
-&usbotg1 {
-	vbus-supply = <&reg_usb_otg1_vbus>;
-	status = "okay";
-};
-
-&usbotg2 {
-	vbus-supply = <&reg_usb_otg2_vbus>;
-	dr_mode = "host";
-	status = "okay";
-};
 
 &iomuxc {
 	pinctrl_i2c1: i2c1grp {
@@ -73,12 +63,6 @@
 			MX7D_PAD_ENET1_CRS__SAI1_TX_SYNC	0x1f
 			MX7D_PAD_ENET1_COL__SAI1_TX_DATA0	0x30
 			MX7D_PAD_ENET1_TX_CLK__SAI1_RX_DATA0	0x1f
-		>;
-	};
-
-	pinctrl_usbotg1_pwr: usbotg_pwr {
-		fsl,pins = <
-			MX7D_PAD_UART3_TX_DATA__GPIO4_IO5	0x14
 		>;
 	};
 };
