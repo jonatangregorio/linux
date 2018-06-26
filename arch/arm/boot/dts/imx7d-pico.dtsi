@@ -208,6 +208,28 @@
 	};
 };
 
+&pwm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm1>;
+	status = "okay";
+};
+
+&pwm2 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm2>;
+	status = "okay";
+};
+
+&pwm3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm3>;
+	status = "okay";
+};
+
+&pwm4 { /* Backlight */
+	status = "okay";
+};
+
 &uart5 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart5>;
@@ -345,6 +367,24 @@
 		fsl,pins = <
 			MX7D_PAD_SAI1_RX_BCLK__I2C4_SDA		0x4000007f
 			MX7D_PAD_SAI1_RX_SYNC__I2C4_SCL		0x4000007f
+		>;
+	};
+
+	pinctrl_pwm1: pwm1 {
+		fsl,pins = <
+			MX7D_PAD_GPIO1_IO08__PWM1_OUT   0x7f
+		>;
+	};
+
+	pinctrl_pwm2: pwm2 {
+		fsl,pins = <
+			MX7D_PAD_GPIO1_IO09__PWM2_OUT   0x7f
+		>;
+	};
+
+	pinctrl_pwm3: pwm3 {
+		fsl,pins = <
+			MX7D_PAD_GPIO1_IO10__PWM3_OUT   0x7f
 		>;
 	};
 
