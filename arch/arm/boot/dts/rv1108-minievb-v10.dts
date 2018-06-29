@@ -1,0 +1,55 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+/dts-v1/;
+
+#include "rv1108.dtsi"
+
+/ {
+	model = "Rockchip RV1108 MINIEVB V10";
+	compatible = "rv1108-minievb-v10", "rockchip,rv1108";
+
+	memory@60000000 {
+		device_type = "memory";
+		reg = <0x60000000 0x08000000>;
+	};
+};
+
+&emmc {
+	status = "okay";
+};
+
+&sdmmc {
+	status = "okay";
+};
+
+&u2phy {
+	status = "okay";
+
+	u2phy_host: host-port {
+		status = "okay";
+	};
+
+	u2phy_otg: otg-port {
+		status = "okay";
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&usb_host_ehci {
+	status = "okay";
+};
+
+&usb_host_ohci {
+	status = "okay";
+};
+
+&usb_otg {
+	status = "okay";
+};
