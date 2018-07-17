@@ -12,6 +12,10 @@
 		device_type = "memory";
 		reg = <0x60000000 0x08000000>;
 	};
+
+	chosen {
+		stdout-path = "serial2:1500000n8";
+	};
 };
 
 &emmc {
@@ -39,6 +43,10 @@
 };
 
 &uart1 {
+	status = "okay";
+};
+
+&uart2 {
 	status = "okay";
 };
 
